@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mind Mansion</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="game-container">
+
+        <!-- Top HUD -->
+        <header class="top-bar">
+            <div class="hud-box">
+                <div class="hud-label">
+                    ⏳ Time Until Exam
+                    <span id="timer">15:00</span>
+                </div>
+                
+                <div class="bar-container">
+                    <div id="timer-bar" class="bar-fill"></div>
+                </div>
+            </div>
+
+            <div class="hud-box">
+                <div class="hud-label">
+                    😰 Anxiety
+                    <span id="anxiety">20%</span>
+                </div>
+
+                <div class="bar-container">
+                    <div id="anxiety-bar" class="bar-fill"></div>
+                </div>
+            </div>
+
+            <div class="hud-box fragments-box">
+                🧩 Fragments
+                <span id="fragments">0 / 4</span>
+            </div>
+        </header>
+
+        <!-- Main Scene -->
+        <main class="scene-area">
+            <div class="background-overlay">
+                <h1>Mind Mansion</h1>
+                <p>The mansion is collapsing...</p>
+            </div>
+        </main>
+
+        <div id="puzzle-overlay" class="hidden">
+            <div id="puzzle-card"></div>
+        </div>
+
+        <!-- Dialogue Panel -->
+        <section class="dialogue-panel">
+            <div class="character-box">
+                <img src="assets/diffuse.png" id="diffuse-img" alt="Diffuse">
+            </div>
+
+            <div class="dialogue-box">
+                <p id="dialogue-text">
+                    Welcome. You are inside your mind.
+                </p>
+                <button id="next-btn">Next</button>
+                
+            </div>
+        </section>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
