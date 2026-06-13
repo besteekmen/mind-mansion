@@ -17,3 +17,5 @@ wide composition,
 empty center space for game UI overlay,
 no text,
 no characters
+
+Notes: Current version is working, but no diffuse participation!
