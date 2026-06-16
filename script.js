@@ -1,30 +1,66 @@
 const dialogueText = document.getElementById("dialogue-text");
 const nextBtn = document.getElementById("next-btn");
+nextBtn.addEventListener("click", () => {
+    console.log("NEXT CLICK FIRED", currentPhase);
+
+    if (currentPhase === GAME_PHASE.INTRO) {
+        dialogueIndex++;
+
+        if (dialogueIndex < introDialogue.length) {
+            updateDialogue(introDialogue[dialogueIndex]);
+        } else {
+            startRoom1();
+        }
+
+        return;
+    }
+
+    if (currentPhase === GAME_PHASE.COMPLETE) {
+        updateDialogue("You are already inside the memory loop.");
+        return;
+    }
+});
 const timerDisplay = document.getElementById("timer");
 const anxietyDisplay = document.getElementById("anxiety");
 const timerBar = document.getElementById("timer-bar");
 const anxietyBar = document.getElementById("anxiety-bar");
 const puzzleOverlay = document.getElementById("puzzle-overlay");
 const puzzleCard = document.getElementById("puzzle-card");
+const fragmentsDisplay = document.getElementById("fragments");
+const diffuseBtn = document.getElementById("diffuse-btn");
 
 // -------------------- GAME STATE --------------------
 
+const GAME_PHASE = {
+    INTRO: "intro",
+    FORGE: "forge",
+    STORM: "storm",
+    RECALL: "recall",
+    COMPLETE: "complete"
+};
+
+let currentPhase = GAME_PHASE.INTRO;
+let gamePaused = false;
+
+// -------------------- CORE STATE --------------------
+
 const totalTime = 15 * 60;
-
 let timeRemaining = totalTime;
-let anxiety = 20;
 
-let stormActive = false;
-let stormInterval;
+let anxiety = 20;
+let fragments = 0;
 
 let dialogueIndex = 0;
 
+// Forge / recall state
+let currentPairIndex = 0;
 let recallIndex = 0;
 let recallScore = 0;
-
-let currentRoom = 0;
-let currentPairIndex = 0;
 let forgedMemories = [];
+let diffuseUses = 2;
+
+// Storm
+let stormInterval = null;
 
 // -------------------- DATA --------------------
 
@@ -89,12 +125,37 @@ const memoryForgeRounds = [
     }
 ];
 
+const correctReplies = [
+    "Excellent. That memory feels stronger.",
+    "Good. I can feel the fragment stabilizing.",
+    "Well done. Your focus sharpens.",
+    "Yes... that association is powerful.",
+    "Impressive. You're resisting the collapse."
+];
+
+const wrongReplies = [
+    "That link feels weak...",
+    "Careful. That memory may fracture.",
+    "No... your focus is slipping.",
+    "The mansion trembles from uncertainty.",
+    "Anxiety feeds on mistakes. Stay calm."
+];
+
+// -------------------- UI CONTROL LAYER --------------------
+
+function setUIState({ showNext = false, showDiffuse = false }) {
+    nextBtn.classList.toggle("hidden", !showNext);
+    diffuseBtn.classList.toggle("hidden", !showDiffuse);
+}
+
 // -------------------- TIMER --------------------
 
 function updateTimer() {
+    if (currentPhase === GAME_PHASE.COMPLETE) return;
+
     if (timeRemaining <= 0) {
-        dialogueText.textContent = "Time is up. Mind collapse.";
-        nextBtn.disabled = true;
+        currentPhase = GAME_PHASE.COMPLETE;
+        updateDialogue("Time is up. Mind collapse.");
         return;
     }
 
@@ -110,64 +171,95 @@ function updateTimer() {
     timerBar.style.width = timerPercent + "%";
 }
 
-// -------------------- ANXIETY SYSTEM (FIXED) --------------------
+// -------------------- ANXIETY SYSTEM --------------------
 
-// ONLY changes value
 function changeAnxiety(amount) {
     anxiety = Math.max(0, Math.min(100, anxiety + amount));
 }
 
-// ONLY updates UI
 function renderAnxiety() {
     anxietyDisplay.textContent = anxiety + "%";
     anxietyBar.style.width = anxiety + "%";
 }
 
-// convenience wrapper
 function applyAnxiety(amount) {
     changeAnxiety(amount);
     renderAnxiety();
 }
 
+// -------------------- DIALOGUE --------------------
+
+function updateDialogue(text) {
+    dialogueText.textContent = text;
+
+    dialogueText.classList.remove("dialogue-update");
+    void dialogueText.offsetWidth;
+    dialogueText.classList.add("dialogue-update");
+}
+
+function randomReply(list) {
+    return list[Math.floor(Math.random() * list.length)];
+}
+
 // -------------------- INTRO --------------------
 
 nextBtn.addEventListener("click", () => {
+    if (currentPhase !== GAME_PHASE.INTRO) return;
+
     dialogueIndex++;
 
     if (dialogueIndex < introDialogue.length) {
-        dialogueText.textContent = introDialogue[dialogueIndex];
+        updateDialogue(introDialogue[dialogueIndex]);
     } else {
-        dialogueText.textContent = "Room 1 starting...";
-        nextBtn.disabled = true;
+        nextBtn.disabled = false;
         startRoom1();
     }
+});
+
+// -------------------- DIFFUSE --------------------
+
+diffuseBtn.addEventListener("click", () => {
+    if (diffuseUses <= 0) {
+        updateDialogue("Diffuse is exhausted...");
+        return;
+    }
+
+    diffuseUses--;
+    applyAnxiety(-5);
+
+    updateDialogue(`Hint: Focus on the strangest image. Uses left: ${diffuseUses}`);
 });
 
 // -------------------- ROOM START --------------------
 
 function startRoom1() {
-    currentRoom = 1;
+    currentPhase = GAME_PHASE.FORGE;
+
+    // 🔥 HARD RESET UI STATE (IMPORTANT FIX)
+    nextBtn.disabled = false;
+    nextBtn.classList.remove("hidden");
+
+    diffuseBtn.disabled = false;
+    diffuseBtn.classList.add("hidden"); // will be shown via setUIState properly
+
     currentPairIndex = 0;
     recallIndex = 0;
     recallScore = 0;
     forgedMemories = [];
 
-    dialogueText.textContent =
-        "Diffuse: Welcome to the Memory Forge. Strange images create stronger memories.";
+    setUIState({ showNext: false, showDiffuse: true });
+
+    updateDialogue("Welcome to the Memory Forge. Strange images create stronger memories.");
 
     renderAssociationPuzzle();
 }
 
-// -------------------- FORGE PHASE --------------------
+// -------------------- PUZZLES --------------------
 
 function renderAssociationPuzzle() {
-    if (currentPairIndex >= memoryForgeRounds.length) {
-        console.warn("Forge phase already completed.");
-        return;
-    }
+    if (currentPhase !== GAME_PHASE.FORGE) return;
 
     const round = memoryForgeRounds[currentPairIndex];
-
     puzzleOverlay.classList.remove("hidden");
 
     puzzleCard.innerHTML = `
@@ -195,48 +287,43 @@ function renderAssociationPuzzle() {
     });
 }
 
-function selectAssociation(selectedIndex) {
+function selectAssociation(index) {
     const round = memoryForgeRounds[currentPairIndex];
 
     forgedMemories.push({
         pair: round.pair,
         linkedObject: round.linkedObject,
-        usedStrongImage: selectedIndex === round.correctChoice
+        usedStrongImage: index === round.correctChoice
     });
 
-    if (selectedIndex === round.correctChoice) {
-        dialogueText.textContent =
-            "Excellent. Strange, vivid links strengthen memory.";
+    if (index === round.correctChoice) {
+        updateDialogue(randomReply(correctReplies));
         applyAnxiety(-3);
     } else {
-        dialogueText.textContent =
-            "That link is weaker. It may be harder to recall later.";
+        updateDialogue(randomReply(wrongReplies));
         applyAnxiety(+5);
     }
 
     currentPairIndex++;
 
     if (currentPairIndex < memoryForgeRounds.length) {
-        setTimeout(renderAssociationPuzzle, 1200);
+        setTimeout(() => renderAssociationPuzzle(), 700);
     } else {
-        setTimeout(startRecallPhase, 1200);
+        setTimeout(startRecallPhase, 900);
     }
 }
 
-// -------------------- MEMORY STORM --------------------
+// -------------------- STORM --------------------
 
 function startRecallPhase() {
-    recallIndex = 0;
-    recallScore = 0;
+    currentPhase = GAME_PHASE.STORM;
+    gamePaused = true;
 
-    dialogueText.textContent = "Diffuse: Hold on... something is breaking.";
+    updateDialogue("Hold on... something is breaking.");
 
     puzzleOverlay.classList.remove("hidden");
 
-    // start storm sequence
-    stormActive = true;
-
-    let stormMessages = [
+    let messages = [
         "What if you fail?",
         "You forgot everything.",
         "Everyone else is ahead.",
@@ -251,7 +338,7 @@ function startRecallPhase() {
             <div class="storm-container">
                 <div class="storm-icon">🌪️</div>
                 <div class="storm-title">MEMORY STORM</div>
-                <div class="storm-text">${stormMessages[i]}</div>
+                <div class="storm-text">${messages[i]}</div>
             </div>
         `;
 
@@ -259,35 +346,37 @@ function startRecallPhase() {
 
         i++;
 
-        if (i >= stormMessages.length) {
+        if (i >= messages.length) {
             clearInterval(stormInterval);
-
-            setTimeout(() => {
-                endMemoryStorm();
-            }, 600);
+            setTimeout(endMemoryStorm, 600);
         }
-
     }, 700);
 }
 
 function endMemoryStorm() {
-    stormActive = false;
+    gamePaused = false;
 
-    puzzleCard.innerHTML = "";
-
-    applyAnxiety(+5); // final spike
+    applyAnxiety(+5);
 
     setTimeout(() => {
         renderRecallQuestion();
     }, 400);
 }
 
-// -------------------- RECALL PHASE --------------------
+// -------------------- RECALL --------------------
 
 function renderRecallQuestion() {
+    currentPhase = GAME_PHASE.RECALL;
+
     const round = memoryForgeRounds[recallIndex];
 
-    const allObjects = ["Calculator", "Crown", "Umbrella", "Violin", "Rocket"];
+    const options = shuffleArray([
+        "Calculator",
+        "Crown",
+        "Umbrella",
+        "Violin",
+        "Rocket"
+    ]);
 
     puzzleCard.innerHTML = `
         <div style="font-size: 18px; margin-bottom: 10px;">
@@ -299,57 +388,68 @@ function renderRecallQuestion() {
         </div>
     `;
 
-    allObjects.forEach(object => {
+    options.forEach(obj => {
         const button = document.createElement("button");
         button.className = "puzzle-option";
-        button.textContent = object;
-
-        button.onclick = () => selectRecallAnswer(object);
-
+        button.textContent = obj;
+        button.onclick = () => selectRecall(obj);
         puzzleCard.appendChild(button);
     });
 }
 
-function selectRecallAnswer(selectedObject) {
+function selectRecall(selected) {
     const round = memoryForgeRounds[recallIndex];
 
-    if (selectedObject === round.linkedObject) {
+    if (selected === round.linkedObject) {
         recallScore++;
-        dialogueText.textContent = "Correct! The memory holds.";
+        updateDialogue(randomReply(correctReplies));
         applyAnxiety(-2);
     } else {
-        dialogueText.textContent = "Memory slipping...";
+        updateDialogue(randomReply(wrongReplies));
         applyAnxiety(+4);
     }
 
     recallIndex++;
 
     if (recallIndex < memoryForgeRounds.length) {
-        setTimeout(renderRecallQuestion, 1000);
+        setTimeout(() => renderRecallQuestion(), 600);
     } else {
-        setTimeout(finishRoom1, 1000);
+        finishRoom1();
     }
 }
 
 // -------------------- END --------------------
 
 function finishRoom1() {
+    currentPhase = GAME_PHASE.COMPLETE;
     puzzleOverlay.classList.add("hidden");
 
     if (recallScore >= 4) {
-        dialogueText.textContent =
-            `Excellent! You recovered a memory fragment. Score: ${recallScore}/5`;
+        fragments++;
+        fragmentsDisplay.textContent = `${fragments} / 4`;
+        updateDialogue(`Excellent! Fragment recovered. Score: ${recallScore}/5`);
     } else {
-        dialogueText.textContent =
-            `You barely held on. Score: ${recallScore}/5`;
+        updateDialogue(`You barely held on. Score: ${recallScore}/5`);
     }
+
+    setUIState({ showNext: true, showDiffuse: false });
+}
+
+// -------------------- UTIL --------------------
+
+function shuffleArray(arr) {
+    return [...arr].sort(() => Math.random() - 0.5);
 }
 
 // -------------------- LOOPS --------------------
 
 setInterval(updateTimer, 1000);
-setInterval(() => applyAnxiety(+1), 8000); // passive anxiety (FIXED)
-renderAnxiety();
 
-// START
+setInterval(() => {
+    if (!gamePaused && currentPhase !== GAME_PHASE.INTRO) {
+        applyAnxiety(+1);
+    }
+}, 8000);
+
+renderAnxiety();
 startRoom1();
