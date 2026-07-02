@@ -1,25 +1,5 @@
 const dialogueText = document.getElementById("dialogue-text");
 const nextBtn = document.getElementById("next-btn");
-nextBtn.addEventListener("click", () => {
-    console.log("NEXT CLICK FIRED", currentPhase);
-
-    if (currentPhase === GAME_PHASE.INTRO) {
-        dialogueIndex++;
-
-        if (dialogueIndex < introDialogue.length) {
-            updateDialogue(introDialogue[dialogueIndex]);
-        } else {
-            startRoom1();
-        }
-
-        return;
-    }
-
-    if (currentPhase === GAME_PHASE.COMPLETE) {
-        updateDialogue("You are already inside the memory loop.");
-        return;
-    }
-});
 const timerDisplay = document.getElementById("timer");
 const anxietyDisplay = document.getElementById("anxiety");
 const timerBar = document.getElementById("timer-bar");
@@ -28,6 +8,9 @@ const puzzleOverlay = document.getElementById("puzzle-overlay");
 const puzzleCard = document.getElementById("puzzle-card");
 const fragmentsDisplay = document.getElementById("fragments");
 const diffuseBtn = document.getElementById("diffuse-btn");
+const transitionOverlay = document.getElementById("room-transition");
+const sceneArea = document.querySelector(".scene-area");
+const backgroundOverlay = document.querySelector(".background-overlay");
 
 // -------------------- GAME STATE --------------------
 
@@ -36,21 +19,32 @@ const GAME_PHASE = {
     FORGE: "forge",
     STORM: "storm",
     RECALL: "recall",
+    RETRIEVAL: "retrieval",
+    ROOM_COMPLETE: "room_complete",
     COMPLETE: "complete"
 };
 
 let currentPhase = GAME_PHASE.INTRO;
 let gamePaused = false;
+let currentRoom = 0;
 
 // -------------------- CORE STATE --------------------
 
 const totalTime = 15 * 60;
+const SPEED = {
+    read: 2500,
+    think: 1800,
+    fast: 1200,
+    reveal: 3000
+};
 let timeRemaining = totalTime;
 
 let anxiety = 20;
 let fragments = 0;
 
 let dialogueIndex = 0;
+
+let room1IntroStep = 0;
 
 // Forge / recall state
 let currentPairIndex = 0;
@@ -62,8 +56,14 @@ let diffuseUses = 2;
 // Storm
 let stormInterval = null;
 
+// room 2
+let room2Step = 0;
+let room2FirstAnswerCorrect = false;
+let selectedChunk = null;
+
 // -------------------- DATA --------------------
 
+// Room 0
 const introDialogue = [
     "Welcome. You are inside Mind Mansion.",
     "Tomorrow is your exam.",
@@ -72,6 +72,7 @@ const introDialogue = [
     "Or your mind will collapse."
 ];
 
+// Room 1
 const memoryForgeRounds = [
     {
         pair: "Dragon + Calculator",
@@ -141,6 +142,8 @@ const wrongReplies = [
     "Anxiety feeds on mistakes. Stay calm."
 ];
 
+// Room 2
+
 // -------------------- UI CONTROL LAYER --------------------
 
 function setUIState({ showNext = false, showDiffuse = false }) {
@@ -204,15 +207,79 @@ function randomReply(list) {
 // -------------------- INTRO --------------------
 
 nextBtn.addEventListener("click", () => {
-    if (currentPhase !== GAME_PHASE.INTRO) return;
+    console.log("NEXT CLICK FIRED", currentPhase);
 
-    dialogueIndex++;
+    if (currentRoom === 1 && currentPhase === GAME_PHASE.FORGE && room1IntroStep === 0) {
+        room1IntroStep = 1;
 
-    if (dialogueIndex < introDialogue.length) {
-        updateDialogue(introDialogue[dialogueIndex]);
-    } else {
-        nextBtn.disabled = false;
-        startRoom1();
+        updateDialogue("Strange images create stronger memories...");
+
+        return;
+    }
+
+    if (currentRoom === 1 && currentPhase === GAME_PHASE.FORGE && room1IntroStep === 1) {
+        room1IntroStep = 2;
+
+        updateDialogue("Focus on the most unusual association.");
+
+        setUIState({ showNext: false, showDiffuse: true });
+
+        setTimeout(() => {
+            renderAssociationPuzzle();
+        }, 1200);
+
+        return;
+    }
+    
+    if (currentPhase === GAME_PHASE.INTRO) {
+        dialogueIndex++;
+
+        if (dialogueIndex < introDialogue.length) {
+            updateDialogue(introDialogue[dialogueIndex]);
+        } else {
+            transitionToRoom("assets/room1-bg.png", () => {
+                goToRoom(1);
+            });
+        }
+
+        return;
+    }
+
+    if (currentRoom === 2) {
+        if (room2Step === 0) {
+            room2Step = 1;
+            updateDialogue("Raw information overwhelms working memory.");
+            return;
+        }
+
+        if (room2Step === 1) {
+            room2Step = 2;
+            updateDialogue("You will learn how to compress it.");
+            return;
+        }
+
+        if (room2Step === 2) {
+            room2Step = 3;
+            startRoom2PhaseA();
+            return;
+        }
+
+        if (room2Step === 4) {
+            room2Step = 5;
+            updateDialogue("A good chunk is compact, ordered, and meaningful.");
+            return;
+        }
+
+        if (room2Step === 5) {
+            room2Step = 6;
+            startRoom2PhaseC();
+            return;
+        }
+    }
+
+    if (currentPhase === GAME_PHASE.COMPLETE) {
+        updateDialogue("Room complete. Room 2 comes next.");
+        return;
     }
 });
 
@@ -230,28 +297,119 @@ diffuseBtn.addEventListener("click", () => {
     updateDialogue(`Hint: Focus on the strangest image. Uses left: ${diffuseUses}`);
 });
 
+// -------------------- SCENE TRANSITION --------------------
+
+function transitionToRoom(backgroundPath, callback) {
+    transitionOverlay.classList.add("active");
+
+    setTimeout(() => {
+        try {
+            sceneArea.style.background = `
+                linear-gradient(rgba(10,10,30,0.25), rgba(10,10,30,0.25)),
+                url("${backgroundPath}")
+            `;
+
+            sceneArea.style.backgroundSize = "cover";
+            sceneArea.style.backgroundPosition = "center";
+            sceneArea.style.backgroundRepeat = "no-repeat";
+
+            transitionOverlay.classList.remove("active");
+
+            if (callback) callback();
+
+        } catch (e) {
+            console.error("Transition error:", e);
+            transitionOverlay.classList.remove("active");
+        }
+
+    }, 500);
+}
+
+function setRoomTitle(title, subtitle = "") {
+    document.getElementById("room-title").textContent = title;
+    document.getElementById("room-subtitle").textContent = subtitle;
+}
+
 // -------------------- ROOM START --------------------
+
+function goToRoom(roomNumber) {
+    currentRoom = roomNumber;
+
+    // make sure title is visible again
+    backgroundOverlay.style.display = "block";
+
+    switch (roomNumber) {
+        case 1:
+            setRoomTitle("Memory Forge", "Visual memory & association");
+            startRoom1();
+            break;
+
+        case 2:
+            transitionToRoom("assets/room2-bg.png", () => {
+                setRoomTitle("Compression Library", "Chunking & memory compression");
+                setTimeout(() => {
+                    startRoom2();
+                }, 50);
+            });
+            break;
+
+        case 3:
+            setRoomTitle("Memory Palace", "Spatial memory & navigation");
+            updateDialogue("Room 3 not built yet.");
+            break;
+
+        case 4:
+            setRoomTitle("Final Escape", "Integration test");
+            updateDialogue("Final escape not built yet.");
+            break;
+    }
+}
 
 function startRoom1() {
     currentPhase = GAME_PHASE.FORGE;
 
-    // 🔥 HARD RESET UI STATE (IMPORTANT FIX)
     nextBtn.disabled = false;
     nextBtn.classList.remove("hidden");
 
     diffuseBtn.disabled = false;
-    diffuseBtn.classList.add("hidden"); // will be shown via setUIState properly
+    diffuseBtn.classList.add("hidden");
 
     currentPairIndex = 0;
     recallIndex = 0;
     recallScore = 0;
     forgedMemories = [];
 
-    setUIState({ showNext: false, showDiffuse: true });
+    setUIState({ showNext: true, showDiffuse: false });
 
-    updateDialogue("Welcome to the Memory Forge. Strange images create stronger memories.");
+    setRoomTitle("Memory Forge", "Visual memory & association");
 
-    renderAssociationPuzzle();
+    updateDialogue("Welcome to the Memory Forge.");
+
+    // STEP FLOW CONTROL FLAG
+    room1IntroStep = 0;
+}
+
+function startRoom2() {
+    currentPhase = GAME_PHASE.RETRIEVAL;
+
+    // safety reset (IMPORTANT)
+    puzzleOverlay.classList.add("hidden");
+    transitionOverlay.classList.remove("active");
+    gamePaused = false;
+
+    room2Step = 0;
+    selectedChunk = null;
+
+    nextBtn.classList.remove("hidden");
+    nextBtn.disabled = false;
+
+    diffuseBtn.classList.add("hidden");
+
+    setUIState({ showNext: true, showDiffuse: false });
+
+    setRoomTitle("Compression Library", "Chunking & memory compression");
+
+    updateDialogue("Welcome to the Compression Library.");
 }
 
 // -------------------- PUZZLES --------------------
@@ -418,10 +576,222 @@ function selectRecall(selected) {
     }
 }
 
+// -------------------- ROOM 2 -----------------
+
+function startRoom2PhaseA() {
+    const words = ["Book", "River", "Ice", "Door", "Glass", "Ember"];
+
+    puzzleOverlay.classList.remove("hidden");
+
+    puzzleCard.innerHTML = `
+        <div style="font-size:18px; margin-bottom:12px;">
+            📚 Memory Overload
+        </div>
+
+        <div style="font-size:28px; margin-bottom:20px;">
+            ${words.join(" • ")}
+        </div>
+
+        <div>Memorize...</div>
+    `;
+
+    setTimeout(() => {
+        puzzleCard.innerHTML = `
+            <div style="font-size:18px; margin-bottom:12px;">
+                ❓ Recall
+            </div>
+            <div style="margin-bottom:20px;">
+                Which item was 4th?
+            </div>
+        `;
+
+        ["Ice", "Door", "River", "Ember"].forEach(choice => {
+            const btn = document.createElement("button");
+            btn.className = "puzzle-option";
+            btn.textContent = choice;
+
+            btn.onclick = () => {
+                room2FirstAnswerCorrect = choice === "Door";
+
+                if (room2FirstAnswerCorrect) {
+                    applyAnxiety(-2);
+                    updateDialogue(
+                        "Impressive. But notice how hard that felt... There is an easier way."
+                    );
+                } else {
+                    applyAnxiety(+3);
+                    updateDialogue(
+                        "That was difficult, wasn’t it? Raw information overwhelms working memory quickly. There is an easier way."
+                    );
+                }
+
+                // SHOW BRIDGE PANEL IMMEDIATELY
+                startRoom2PhaseB();
+
+                // Next click should continue from here
+                room2Step = 4;
+            };
+
+            puzzleCard.appendChild(btn);
+        });
+    }, 4000);
+}
+
+function startRoom2PhaseB() {
+
+    puzzleOverlay.classList.remove("hidden");
+
+    puzzleCard.innerHTML = `
+        <div style="font-size:18px; margin-bottom:12px;">
+            🧩 Compression
+        </div>
+
+        <div style="font-size:26px;">
+            Book • River • Ice • Door • Glass • Ember
+        </div>
+
+        <div style="margin-top:20px; font-size:32px; color:#60a5fa;">
+            BRIDGE
+        </div>
+    `;
+}
+
+function startRoom2PhaseC() {
+    const words = ["Lantern", "Ocean", "Crown", "Kite", "Ember"];
+
+    puzzleCard.innerHTML = `
+        <div style="font-size:18px; margin-bottom:12px;">
+            🧠 Choose your chunk strategy
+        </div>
+
+        <div style="margin-bottom:20px;">
+            ${words.join(" • ")}
+        </div>
+    `;
+
+    const choices = [
+        "Raw List",
+        "LOCKE",
+        "Lazy Owls Carry Kite Equipment",
+        "LOKCE"
+    ];
+
+    choices.forEach(choice => {
+        const btn = document.createElement("button");
+        btn.className = "puzzle-option";
+        btn.textContent = choice;
+
+        btn.onclick = () => handleRoom2Choice(choice);
+        puzzleCard.appendChild(btn);
+    });
+}
+
+function handleRoom2Choice(choice) {
+    selectedChunk = choice;
+
+    updateDialogue(`Okay, you picked: "${choice}".`);
+
+    setTimeout(() => {
+        if (choice === "Lazy Owls Carry Kite Equipment") {
+            updateDialogue("Great choice. Meaning and imagery make memory stronger.");
+        } else if (choice === "LOCKE") {
+            updateDialogue("Good. That’s a decent chunk — we can still strengthen it.");
+        } else {
+            updateDialogue("That’s fine. Let’s see how it performs.");
+        }
+    }, 900);
+
+    setTimeout(() => {
+        startRoom2DistortionStorm();
+    }, 1800);
+}
+
+function startRoom2DistortionStorm() {
+    puzzleOverlay.classList.remove("hidden");
+    gamePaused = true;
+
+    const messages = [
+        "Pages are rewriting themselves...",
+        "Your chunk is unstable...",
+        "Memory interference detected...",
+        "Focus is breaking apart...",
+        "Reconstruction in progress..."
+    ];
+
+    let i = 0;
+
+    const interval = setInterval(() => {
+        puzzleCard.innerHTML = `
+            <div class="storm-container">
+                <div class="storm-icon">📚</div>
+                <div class="storm-title">LIBRARY DISTORTION</div>
+                <div class="storm-text">${messages[i]}</div>
+            </div>
+        `;
+
+        applyAnxiety(+2);
+        i++;
+
+        if (i >= messages.length) {
+            clearInterval(interval);
+
+            setTimeout(() => {
+                endRoom2DistortionStorm();
+            }, 700);
+        }
+    }, 900);
+}
+
+function endRoom2DistortionStorm() {
+    gamePaused = false;
+
+    applyAnxiety(+4);
+
+    setTimeout(() => {
+        startRoom2RecallTest();
+    }, 500);
+}
+
+function startRoom2RecallTest() {
+    const options = ["Crown", "Kite", "Ocean", "Ember"];
+
+    puzzleCard.innerHTML = `
+        <div style="font-size:18px; margin-bottom:12px;">
+            🧠 Can you remember now?
+        </div>
+
+        <div style="margin-bottom:20px;">
+            Which item was 4th?
+        </div>
+    `;
+
+    options.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.className = "puzzle-option";
+        btn.textContent = opt;
+
+        btn.onclick = () => {
+            const correct = opt === "Kite";
+
+            updateDialogue(
+                correct
+                    ? "Good. The structure helped stabilize memory."
+                    : "Not quite. But notice how the chunk still helps guide recall."
+            );
+
+            applyAnxiety(correct ? -3 : +4);
+
+            setTimeout(finishRoom2, 1500);
+        };
+
+        puzzleCard.appendChild(btn);
+    });
+}
+
 // -------------------- END --------------------
 
 function finishRoom1() {
-    currentPhase = GAME_PHASE.COMPLETE;
+    currentPhase = GAME_PHASE.ROOM_COMPLETE;
     puzzleOverlay.classList.add("hidden");
 
     if (recallScore >= 4) {
@@ -432,7 +802,33 @@ function finishRoom1() {
         updateDialogue(`You barely held on. Score: ${recallScore}/5`);
     }
 
-    setUIState({ showNext: true, showDiffuse: false });
+    setUIState({ showNext: false, showDiffuse: false });
+
+    setTimeout(() => {
+        updateDialogue("A second door opens... The Compression Library awaits.");
+    }, 1800);
+
+    setTimeout(() => {
+        goToRoom(2);
+    }, 3500);
+}
+
+function finishRoom2() {
+    puzzleOverlay.classList.add("hidden");
+
+    currentPhase = GAME_PHASE.ROOM_COMPLETE;
+
+    if (selectedChunk === "Lazy Owls Carry Kite Equipment") {
+        fragments++;
+        fragmentsDisplay.textContent = `${fragments} / 4`;
+        updateDialogue("Excellent. Strong chunk created. Fragment recovered.");
+    } else {
+        updateDialogue("You completed the task. But chunk strength could improve.");
+    }
+
+    setTimeout(() => {
+        goToRoom(3);
+    }, 2500);
 }
 
 // -------------------- UTIL --------------------
@@ -452,4 +848,5 @@ setInterval(() => {
 }, 8000);
 
 renderAnxiety();
-startRoom1();
+updateDialogue(introDialogue[0]);
+setUIState({ showNext: true, showDiffuse: false });

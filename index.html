@@ -43,8 +43,8 @@
         <!-- Main Scene -->
         <main class="scene-area">
             <div class="background-overlay">
-                <h1>Mind Mansion</h1>
-                <p>The mansion is collapsing...</p>
+                <h1 id="room-title">Mind Mansion</h1>
+                <p id="room-subtitle">The mansion is collapsing...</p>
             </div>
         </main>
 
@@ -59,18 +59,24 @@
             </div>
 
             <div class="dialogue-box">
-                <p id="dialogue-text">
-                    Welcome. You are inside your mind.
-                </p>
-                <div class="button-row">
+
+                <div class="dialogue-text-area">
+                    <p id="dialogue-text">
+                        Welcome. You are inside your mind.
+                    </p>
+                </div>
+
+                <div class="dialogue-buttons">
                     <button id="diffuse-btn" class="hidden">Ask Diffuse</button>
                     <button id="next-btn">Next</button>
                 </div>
+
             </div>
         </section>
 
     </div>
 
+    <div id="room-transition"></div>
     <script src="script.js"></script>
 </body>
 </html>
