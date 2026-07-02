@@ -60,6 +60,7 @@ let stormInterval = null;
 let room2Step = 0;
 let room2FirstAnswerCorrect = false;
 let selectedChunk = null;
+let room2DiffuseContext = null;
 
 // -------------------- DATA --------------------
 
@@ -294,7 +295,28 @@ diffuseBtn.addEventListener("click", () => {
     diffuseUses--;
     applyAnxiety(-5);
 
-    updateDialogue(`Hint: Focus on the strangest image. Uses left: ${diffuseUses}`);
+    if (currentRoom === 1) {
+        updateDialogue(
+            `Hint: Focus on the strangest image. Uses left: ${diffuseUses}`
+        );
+        return;
+    }
+
+    if (currentRoom === 2) {
+        if (room2DiffuseContext === "chunk") {
+            updateDialogue(
+                `Hint: Strong chunks are ordered and meaningful. Uses left: ${diffuseUses}`
+            );
+            return;
+        }
+
+        if (room2DiffuseContext === "recall") {
+            updateDialogue(
+                `Hint: Recall what each letter in LOCKE stood for. Uses left: ${diffuseUses}`
+            );
+            return;
+        }
+    }
 });
 
 // -------------------- SCENE TRANSITION --------------------
@@ -595,6 +617,8 @@ function startRoom2PhaseA() {
         <div>Memorize...</div>
     `;
 
+    setUIState({ showNext: false, showDiffuse: true });
+
     setTimeout(() => {
         puzzleCard.innerHTML = `
             <div style="font-size:18px; margin-bottom:12px;">
@@ -624,6 +648,8 @@ function startRoom2PhaseA() {
                         "That was difficult, wasn’t it? Raw information overwhelms working memory quickly. There is an easier way."
                     );
                 }
+
+                setUIState({ showNext: true, showDiffuse: false });
 
                 // SHOW BRIDGE PANEL IMMEDIATELY
                 startRoom2PhaseB();
@@ -657,6 +683,9 @@ function startRoom2PhaseB() {
 }
 
 function startRoom2PhaseC() {
+    room2DiffuseContext = "chunk";
+    setUIState({ showNext: false, showDiffuse: true });
+
     const words = ["Lantern", "Ocean", "Crown", "Kite", "Ember"];
 
     puzzleCard.innerHTML = `
@@ -688,6 +717,8 @@ function startRoom2PhaseC() {
 
 function handleRoom2Choice(choice) {
     selectedChunk = choice;
+
+    setUIState({ showNext: true, showDiffuse: false });
 
     updateDialogue(`Okay, you picked: "${choice}".`);
 
@@ -753,6 +784,9 @@ function endRoom2DistortionStorm() {
 }
 
 function startRoom2RecallTest() {
+    room2DiffuseContext = "recall";
+    setUIState({ showNext: false, showDiffuse: true });
+
     const options = ["Crown", "Kite", "Ocean", "Ember"];
 
     puzzleCard.innerHTML = `
@@ -771,6 +805,8 @@ function startRoom2RecallTest() {
         btn.textContent = opt;
 
         btn.onclick = () => {
+            setUIState({ showNext: true, showDiffuse: false });
+
             const correct = opt === "Kite";
 
             updateDialogue(
