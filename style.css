@@ -393,6 +393,46 @@ body {
     background: rgba(251, 191, 36, 0.1);
 }
 
+.aether-heading {
+    font-size: 24px;
+    font-weight: 700;
+    color: #bfdbfe;
+}
+
+.aether-intro,
+.aether-map-note {
+    line-height: 1.45;
+    color: #e2e8f0;
+}
+
+.aether-concepts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.aether-concepts div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(96, 165, 250, 0.1);
+}
+
+.aether-concepts span,
+.aether-map-option span,
+.aether-map-option small {
+    color: #cbd5e1;
+    line-height: 1.35;
+}
+
+.aether-map-option {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 /* =========================
    STORM
 ========================= */

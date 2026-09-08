@@ -63,6 +63,7 @@ let stormInterval = null;
 let room2Step = 0;
 let room2FirstAnswerCorrect = false;
 let selectedChunk = null;
+let selectedAetherMap = null;
 let room2DiffuseContext = null;
 
 // -------------------- DATA --------------------
@@ -345,6 +346,18 @@ nextBtn.addEventListener("click", () => {
 
         if (room2Step === 7) {
             room2Step = 8;
+            startAetherIntroduction();
+            return;
+        }
+
+        if (room2Step === 8) {
+            room2Step = 9;
+            startAetherMapSelection();
+            return;
+        }
+
+        if (room2Step === 10) {
+            room2Step = 11;
             startRoom2DistortionStorm();
             return;
         }
@@ -512,6 +525,7 @@ function startRoom2() {
 
     room2Step = 0;
     selectedChunk = null;
+    selectedAetherMap = null;
     diffuseUses = 2;
     room2DiffuseContext = null;
 
@@ -840,6 +854,77 @@ function handleRoom2Choice(choice, puzzle) {
         `<div class="selected-strategy"><strong>Selected strategy:</strong> ${choice}</div>`
     );
     updateDialogue(feedback);
+}
+
+const aetherConcepts = [
+    ["Aether Core", "produces raw energy"],
+    ["Prism Coil", "converts raw energy into usable light"],
+    ["Lumen Cell", "stores the converted light"],
+    ["Pulse Gate", "controls when stored energy is released"],
+    ["Beacon Lens", "focuses released energy into a beam"],
+    ["Cooling Ring", "stabilizes the Core and Coil while the engine runs"]
+];
+
+const aetherMaps = {
+    meaningful: {
+        title: "Map A — Process and support",
+        description: "Aether Core → Prism Coil → Lumen Cell → Pulse Gate → Beacon Lens",
+        support: "Cooling Ring → stabilizes Aether Core + Prism Coil",
+        feedback: "This map exposes the engine’s main process and its supporting relationship."
+    },
+    radial: {
+        title: "Map B — A radial grouping",
+        description: "Aether Engine at the center, with Aether Core • Prism Coil • Lumen Cell • Pulse Gate • Beacon Lens • Cooling Ring around it",
+        support: "The group is visible, but the working relationships are not shown.",
+        feedback: "The group is tidy, but the missing relationships make recall harder."
+    },
+    misleading: {
+        title: "Map C — An incorrect chain",
+        description: "Cooling Ring → Beacon Lens → Aether Core → Lumen Cell → Prism Coil → Pulse Gate",
+        support: "The labels are present, but the order breaks the engine’s relationships.",
+        feedback: "All the pieces are here, but this order distorts how the engine works."
+    }
+};
+
+function startAetherIntroduction() {
+    puzzleOverlay.classList.remove("hidden");
+    setUIState({ showNext: true, showDiffuse: false });
+    puzzleCard.innerHTML = `
+        <div class="aether-heading">⚙️ The Aether Engine</div>
+        <div class="aether-intro">The Aether Engine is an imaginary machine created for this memory exercise. Everything you need to know is shown here.</div>
+        <div class="aether-concepts">
+            ${aetherConcepts.map(([name, description]) => `<div><strong>${name}</strong><span>${description}</span></div>`).join("")}
+        </div>
+    `;
+    updateDialogue("Study the relationships, then choose the structure that makes them easiest to remember.");
+}
+
+function startAetherMapSelection() {
+    const puzzle = beginPuzzleAnswers();
+    setUIState({ showNext: false, showDiffuse: false });
+    puzzleCard.innerHTML = `
+        <div class="aether-heading">Choose the strongest Aether Engine map</div>
+        <div class="aether-map-note">Each map contains the same six concepts. Only the organization changes.</div>
+    `;
+
+    Object.entries(aetherMaps).forEach(([key, map]) => {
+        const button = document.createElement("button");
+        button.className = "puzzle-option aether-map-option";
+        button.innerHTML = `<strong>${map.title}</strong><span>${map.description}</span><small>${map.support}</small>`;
+        button.onclick = () => selectAetherMap(key, puzzle);
+        puzzleCard.appendChild(button);
+    });
+}
+
+function selectAetherMap(key, puzzle) {
+    if (!acceptPuzzleAnswer(puzzle)) return;
+    selectedAetherMap = key;
+    room2Step = 10;
+    const map = aetherMaps[key];
+    puzzleCard.insertAdjacentHTML("beforeend", `<div class="selected-strategy"><strong>Selected map:</strong> ${map.title}</div>`);
+    setUIState({ showNext: true, showDiffuse: false });
+    updateDialogue(map.feedback);
+    if (key !== "meaningful") applyAnxiety(+2);
 }
 
 function startRoom2DistortionStorm() {
