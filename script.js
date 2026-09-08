@@ -171,12 +171,58 @@ function acceptPuzzleAnswer(puzzle) {
     return true;
 }
 
+// -------------------- ROOM CALLBACK LIFETIME --------------------
+
+let roomWorkVersion = 0;
+const roomTimeouts = new Set();
+const roomIntervals = new Set();
+
+function clearRoomInterval(id) {
+    clearInterval(id);
+    roomIntervals.delete(id);
+}
+
+function scheduleRoomCallback(callback, delay, repeat = false) {
+    const version = roomWorkVersion;
+    const room = currentRoom;
+    const phase = currentPhase;
+    const run = () => {
+        if (!repeat) roomTimeouts.delete(id);
+        if (version !== roomWorkVersion || room !== currentRoom || phase !== currentPhase) {
+            if (repeat) clearRoomInterval(id);
+            return;
+        }
+        callback();
+    };
+    const id = repeat ? setInterval(run, delay) : setTimeout(run, delay);
+    (repeat ? roomIntervals : roomTimeouts).add(id);
+    return id;
+}
+
+// Also call this before future collapse/retry/restart resets, including same-room resets.
+function cancelRoomWork() {
+    roomWorkVersion++;
+    roomTimeouts.forEach(id => clearTimeout(id));
+    roomIntervals.forEach(id => clearInterval(id));
+    roomTimeouts.clear();
+    roomIntervals.clear();
+    stormInterval = null;
+    answerPending = true;
+    activePuzzle++;
+    transitionPending = false;
+    nextBtn.disabled = false;
+    gamePaused = false;
+    transitionOverlay.classList.remove("active");
+    puzzleOverlay.classList.add("hidden");
+}
+
 // -------------------- TIMER --------------------
 
 function updateTimer() {
     if (currentPhase === GAME_PHASE.COMPLETE) return;
 
     if (timeRemaining <= 0) {
+        cancelRoomWork();
         currentPhase = GAME_PHASE.COMPLETE;
         updateDialogue("Time is up. Mind collapse.");
         return;
@@ -245,7 +291,7 @@ nextBtn.addEventListener("click", () => {
 
         setUIState({ showNext: false, showDiffuse: true });
 
-        setTimeout(() => {
+        scheduleRoomCallback(() => {
             renderAssociationPuzzle();
         }, 1200);
 
@@ -344,12 +390,13 @@ diffuseBtn.addEventListener("click", () => {
 
 function transitionToRoom(backgroundPath, callback) {
     if (transitionPending) return;
+    cancelRoomWork();
     transitionPending = true;
     answerPending = true;
     nextBtn.disabled = true;
     transitionOverlay.classList.add("active");
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         try {
             sceneArea.style.background = `
                 linear-gradient(rgba(10,10,30,0.25), rgba(10,10,30,0.25)),
@@ -384,8 +431,7 @@ function setRoomTitle(title, subtitle = "") {
 // -------------------- ROOM START --------------------
 
 function goToRoom(roomNumber) {
-    if (transitionPending) return;
-    answerPending = true;
+    cancelRoomWork();
     currentRoom = roomNumber;
 
     // make sure title is visible again
@@ -401,7 +447,7 @@ function goToRoom(roomNumber) {
             transitionToRoom("assets/room2-bg.png", () => {
                 setRoomTitle("Compression Library", "Chunking & memory compression");
                 nextBtn.disabled = true;
-                setTimeout(() => {
+                scheduleRoomCallback(() => {
                     startRoom2();
                 }, 50);
             });
@@ -521,9 +567,9 @@ function selectAssociation(index, puzzle) {
     currentPairIndex++;
 
     if (currentPairIndex < memoryForgeRounds.length) {
-        setTimeout(() => renderAssociationPuzzle(), 700);
+        scheduleRoomCallback(() => renderAssociationPuzzle(), 700);
     } else {
-        setTimeout(startRecallPhase, 900);
+        scheduleRoomCallback(startRecallPhase, 900);
     }
 }
 
@@ -547,7 +593,7 @@ function startRecallPhase() {
 
     let i = 0;
 
-    stormInterval = setInterval(() => {
+    stormInterval = scheduleRoomCallback(() => {
         puzzleCard.innerHTML = `
             <div class="storm-container">
                 <div class="storm-icon">🌪️</div>
@@ -561,10 +607,10 @@ function startRecallPhase() {
         i++;
 
         if (i >= messages.length) {
-            clearInterval(stormInterval);
-            setTimeout(endMemoryStorm, 600);
+            clearRoomInterval(stormInterval);
+            scheduleRoomCallback(endMemoryStorm, 600);
         }
-    }, 700);
+    }, 700, true);
 }
 
 function endMemoryStorm() {
@@ -572,7 +618,7 @@ function endMemoryStorm() {
 
     applyAnxiety(+5);
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         renderRecallQuestion();
     }, 400);
 }
@@ -628,7 +674,7 @@ function selectRecall(selected, puzzle) {
     recallIndex++;
 
     if (recallIndex < memoryForgeRounds.length) {
-        setTimeout(() => renderRecallQuestion(), 600);
+        scheduleRoomCallback(() => renderRecallQuestion(), 600);
     } else {
         finishRoom1();
     }
@@ -655,7 +701,7 @@ function startRoom2PhaseA() {
 
     setUIState({ showNext: false, showDiffuse: true });
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         puzzleCard.innerHTML = `
             <div style="font-size:18px; margin-bottom:12px;">
                 ❓ Recall
@@ -762,7 +808,7 @@ function handleRoom2Choice(choice, puzzle) {
 
     updateDialogue(`Okay, you picked: "${choice}".`);
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         if (choice === "Lazy Owls Carry Kite Equipment") {
             updateDialogue("Great choice. Meaning and imagery make memory stronger.");
         } else if (choice === "LOCKE") {
@@ -772,7 +818,7 @@ function handleRoom2Choice(choice, puzzle) {
         }
     }, 900);
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         startRoom2DistortionStorm();
     }, 1800);
 }
@@ -791,7 +837,7 @@ function startRoom2DistortionStorm() {
 
     let i = 0;
 
-    const interval = setInterval(() => {
+    const interval = scheduleRoomCallback(() => {
         puzzleCard.innerHTML = `
             <div class="storm-container">
                 <div class="storm-icon">📚</div>
@@ -804,13 +850,13 @@ function startRoom2DistortionStorm() {
         i++;
 
         if (i >= messages.length) {
-            clearInterval(interval);
+            clearRoomInterval(interval);
 
-            setTimeout(() => {
+            scheduleRoomCallback(() => {
                 endRoom2DistortionStorm();
             }, 700);
         }
-    }, 900);
+    }, 900, true);
 }
 
 function endRoom2DistortionStorm() {
@@ -818,7 +864,7 @@ function endRoom2DistortionStorm() {
 
     applyAnxiety(+4);
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         startRoom2RecallTest();
     }, 500);
 }
@@ -859,7 +905,7 @@ function startRoom2RecallTest() {
 
             applyAnxiety(correct ? -3 : +4);
 
-            setTimeout(finishRoom2, 1500);
+            scheduleRoomCallback(finishRoom2, 1500);
         };
 
         puzzleCard.appendChild(btn);
@@ -884,11 +930,11 @@ function finishRoom1() {
 
     setUIState({ showNext: false, showDiffuse: false });
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         updateDialogue("A second door opens... The Compression Library awaits.");
     }, 1800);
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         goToRoom(2);
     }, 3500);
 }
@@ -908,7 +954,7 @@ function finishRoom2() {
         updateDialogue("You completed the task. But chunk strength could improve.");
     }
 
-    setTimeout(() => {
+    scheduleRoomCallback(() => {
         goToRoom(3);
     }, 2500);
 }
