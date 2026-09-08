@@ -371,6 +371,13 @@ body {
     background: rgba(96,165,250,0.18);
 }
 
+.puzzle-option:disabled,
+#next-btn:disabled {
+    opacity: 0.65;
+    cursor: default;
+    transform: none;
+}
+
 /* =========================
    STORM
 ========================= */

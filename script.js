@@ -27,6 +27,9 @@ const GAME_PHASE = {
 let currentPhase = GAME_PHASE.INTRO;
 let gamePaused = false;
 let currentRoom = 0;
+let transitionPending = false;
+let activePuzzle = 0;
+let answerPending = true;
 
 // -------------------- CORE STATE --------------------
 
@@ -152,6 +155,22 @@ function setUIState({ showNext = false, showDiffuse = false }) {
     diffuseBtn.classList.toggle("hidden", !showDiffuse);
 }
 
+// Each rendered question accepts one answer, including queued clicks on old buttons.
+function beginPuzzleAnswers() {
+    answerPending = false;
+    return ++activePuzzle;
+}
+
+function acceptPuzzleAnswer(puzzle) {
+    if (answerPending || puzzle !== activePuzzle || transitionPending) return false;
+
+    answerPending = true;
+    puzzleCard.querySelectorAll("button").forEach(button => {
+        button.disabled = true;
+    });
+    return true;
+}
+
 // -------------------- TIMER --------------------
 
 function updateTimer() {
@@ -208,6 +227,7 @@ function randomReply(list) {
 // -------------------- INTRO --------------------
 
 nextBtn.addEventListener("click", () => {
+    if (transitionPending || nextBtn.disabled || nextBtn.classList.contains("hidden")) return;
     console.log("NEXT CLICK FIRED", currentPhase);
 
     if (currentRoom === 1 && currentPhase === GAME_PHASE.FORGE && room1IntroStep === 0) {
@@ -287,6 +307,7 @@ nextBtn.addEventListener("click", () => {
 // -------------------- DIFFUSE --------------------
 
 diffuseBtn.addEventListener("click", () => {
+    if (transitionPending) return;
     if (diffuseUses <= 0) {
         updateDialogue("Diffuse is exhausted...");
         return;
@@ -322,6 +343,10 @@ diffuseBtn.addEventListener("click", () => {
 // -------------------- SCENE TRANSITION --------------------
 
 function transitionToRoom(backgroundPath, callback) {
+    if (transitionPending) return;
+    transitionPending = true;
+    answerPending = true;
+    nextBtn.disabled = true;
     transitionOverlay.classList.add("active");
 
     setTimeout(() => {
@@ -337,9 +362,13 @@ function transitionToRoom(backgroundPath, callback) {
 
             transitionOverlay.classList.remove("active");
 
+            transitionPending = false;
+            nextBtn.disabled = false;
             if (callback) callback();
 
         } catch (e) {
+            transitionPending = false;
+            nextBtn.disabled = false;
             console.error("Transition error:", e);
             transitionOverlay.classList.remove("active");
         }
@@ -355,6 +384,8 @@ function setRoomTitle(title, subtitle = "") {
 // -------------------- ROOM START --------------------
 
 function goToRoom(roomNumber) {
+    if (transitionPending) return;
+    answerPending = true;
     currentRoom = roomNumber;
 
     // make sure title is visible again
@@ -369,6 +400,7 @@ function goToRoom(roomNumber) {
         case 2:
             transitionToRoom("assets/room2-bg.png", () => {
                 setRoomTitle("Compression Library", "Chunking & memory compression");
+                nextBtn.disabled = true;
                 setTimeout(() => {
                     startRoom2();
                 }, 50);
@@ -439,6 +471,7 @@ function startRoom2() {
 function renderAssociationPuzzle() {
     if (currentPhase !== GAME_PHASE.FORGE) return;
 
+    const puzzle = beginPuzzleAnswers();
     const round = memoryForgeRounds[currentPairIndex];
     puzzleOverlay.classList.remove("hidden");
 
@@ -461,13 +494,14 @@ function renderAssociationPuzzle() {
         button.className = "puzzle-option";
         button.textContent = choice;
 
-        button.onclick = () => selectAssociation(index);
+        button.onclick = () => selectAssociation(index, puzzle);
 
         puzzleCard.appendChild(button);
     });
 }
 
-function selectAssociation(index) {
+function selectAssociation(index, puzzle) {
+    if (!acceptPuzzleAnswer(puzzle)) return;
     const round = memoryForgeRounds[currentPairIndex];
 
     forgedMemories.push({
@@ -546,6 +580,7 @@ function endMemoryStorm() {
 // -------------------- RECALL --------------------
 
 function renderRecallQuestion() {
+    const puzzle = beginPuzzleAnswers();
     currentPhase = GAME_PHASE.RECALL;
 
     const round = memoryForgeRounds[recallIndex];
@@ -572,12 +607,13 @@ function renderRecallQuestion() {
         const button = document.createElement("button");
         button.className = "puzzle-option";
         button.textContent = obj;
-        button.onclick = () => selectRecall(obj);
+        button.onclick = () => selectRecall(obj, puzzle);
         puzzleCard.appendChild(button);
     });
 }
 
-function selectRecall(selected) {
+function selectRecall(selected, puzzle) {
+    if (!acceptPuzzleAnswer(puzzle)) return;
     const round = memoryForgeRounds[recallIndex];
 
     if (selected === round.linkedObject) {
@@ -629,12 +665,14 @@ function startRoom2PhaseA() {
             </div>
         `;
 
+        const puzzle = beginPuzzleAnswers();
         ["Ice", "Door", "River", "Ember"].forEach(choice => {
             const btn = document.createElement("button");
             btn.className = "puzzle-option";
             btn.textContent = choice;
 
             btn.onclick = () => {
+                if (!acceptPuzzleAnswer(puzzle)) return;
                 room2FirstAnswerCorrect = choice === "Door";
 
                 if (room2FirstAnswerCorrect) {
@@ -683,6 +721,7 @@ function startRoom2PhaseB() {
 }
 
 function startRoom2PhaseC() {
+    const puzzle = beginPuzzleAnswers();
     room2DiffuseContext = "chunk";
     setUIState({ showNext: false, showDiffuse: true });
 
@@ -710,12 +749,13 @@ function startRoom2PhaseC() {
         btn.className = "puzzle-option";
         btn.textContent = choice;
 
-        btn.onclick = () => handleRoom2Choice(choice);
+        btn.onclick = () => handleRoom2Choice(choice, puzzle);
         puzzleCard.appendChild(btn);
     });
 }
 
-function handleRoom2Choice(choice) {
+function handleRoom2Choice(choice, puzzle) {
+    if (!acceptPuzzleAnswer(puzzle)) return;
     selectedChunk = choice;
 
     setUIState({ showNext: true, showDiffuse: false });
@@ -784,6 +824,7 @@ function endRoom2DistortionStorm() {
 }
 
 function startRoom2RecallTest() {
+    const puzzle = beginPuzzleAnswers();
     room2DiffuseContext = "recall";
     setUIState({ showNext: false, showDiffuse: true });
 
@@ -805,6 +846,7 @@ function startRoom2RecallTest() {
         btn.textContent = opt;
 
         btn.onclick = () => {
+            if (!acceptPuzzleAnswer(puzzle)) return;
             setUIState({ showNext: true, showDiffuse: false });
 
             const correct = opt === "Kite";
@@ -827,6 +869,8 @@ function startRoom2RecallTest() {
 // -------------------- END --------------------
 
 function finishRoom1() {
+    if (currentRoom !== 1 || currentPhase !== GAME_PHASE.RECALL) return;
+    answerPending = true;
     currentPhase = GAME_PHASE.ROOM_COMPLETE;
     puzzleOverlay.classList.add("hidden");
 
@@ -850,6 +894,8 @@ function finishRoom1() {
 }
 
 function finishRoom2() {
+    if (currentRoom !== 2 || currentPhase !== GAME_PHASE.RETRIEVAL) return;
+    answerPending = true;
     puzzleOverlay.classList.add("hidden");
 
     currentPhase = GAME_PHASE.ROOM_COMPLETE;
