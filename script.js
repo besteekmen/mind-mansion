@@ -478,6 +478,8 @@ function startRoom1() {
     recallIndex = 0;
     recallScore = 0;
     forgedMemories = [];
+    diffuseUses = 2;
+    room2DiffuseContext = null;
 
     setUIState({ showNext: true, showDiffuse: false });
 
@@ -499,6 +501,8 @@ function startRoom2() {
 
     room2Step = 0;
     selectedChunk = null;
+    diffuseUses = 2;
+    room2DiffuseContext = null;
 
     nextBtn.classList.remove("hidden");
     nextBtn.disabled = false;
@@ -699,7 +703,7 @@ function startRoom2PhaseA() {
         <div>Memorize...</div>
     `;
 
-    setUIState({ showNext: false, showDiffuse: true });
+    setUIState({ showNext: false, showDiffuse: false });
 
     scheduleRoomCallback(() => {
         puzzleCard.innerHTML = `
@@ -757,7 +761,12 @@ function startRoom2PhaseB() {
         </div>
 
         <div style="font-size:26px;">
-            Book • River • Ice • Door • Glass • Ember
+            <span class="bridge-word"><span class="bridge-initial">B</span>ook</span> •
+            <span class="bridge-word"><span class="bridge-initial">R</span>iver</span> •
+            <span class="bridge-word"><span class="bridge-initial">I</span>ce</span> •
+            <span class="bridge-word"><span class="bridge-initial">D</span>oor</span> •
+            <span class="bridge-word"><span class="bridge-initial">G</span>lass</span> •
+            <span class="bridge-word"><span class="bridge-initial">E</span>mber</span>
         </div>
 
         <div style="margin-top:20px; font-size:32px; color:#60a5fa;">
