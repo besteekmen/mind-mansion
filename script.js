@@ -342,6 +342,12 @@ nextBtn.addEventListener("click", () => {
             startRoom2PhaseC();
             return;
         }
+
+        if (room2Step === 7) {
+            room2Step = 8;
+            startRoom2DistortionStorm();
+            return;
+        }
     }
 
     if (currentRoom === 1 && currentPhase === GAME_PHASE.ROOM_COMPLETE) {
@@ -817,24 +823,23 @@ function startRoom2PhaseC() {
 function handleRoom2Choice(choice, puzzle) {
     if (!acceptPuzzleAnswer(puzzle)) return;
     selectedChunk = choice;
+    room2Step = 7;
 
     setUIState({ showNext: true, showDiffuse: false });
 
-    updateDialogue(`Okay, you picked: "${choice}".`);
+    const feedback = choice === "Lazy Owls Carry Kite Equipment"
+        ? "Great choice. Meaning and imagery make memory stronger."
+        : choice === "LOCKE"
+            ? "Good. LOCKE preserves order, though vivid imagery can strengthen it."
+            : choice === "LOKCE"
+                ? "That order is unstable; we’ll see how it performs."
+                : "A raw list has no compression; we’ll see how it performs.";
 
-    scheduleRoomCallback(() => {
-        if (choice === "Lazy Owls Carry Kite Equipment") {
-            updateDialogue("Great choice. Meaning and imagery make memory stronger.");
-        } else if (choice === "LOCKE") {
-            updateDialogue("Good. That’s a decent chunk — we can still strengthen it.");
-        } else {
-            updateDialogue("That’s fine. Let’s see how it performs.");
-        }
-    }, 900);
-
-    scheduleRoomCallback(() => {
-        startRoom2DistortionStorm();
-    }, 1800);
+    puzzleCard.insertAdjacentHTML(
+        "beforeend",
+        `<div class="selected-strategy"><strong>Selected strategy:</strong> ${choice}</div>`
+    );
+    updateDialogue(feedback);
 }
 
 function startRoom2DistortionStorm() {
