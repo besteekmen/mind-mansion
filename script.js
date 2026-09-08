@@ -344,6 +344,11 @@ nextBtn.addEventListener("click", () => {
         }
     }
 
+    if (currentRoom === 1 && currentPhase === GAME_PHASE.ROOM_COMPLETE) {
+        goToRoom(2);
+        return;
+    }
+
     if (currentPhase === GAME_PHASE.COMPLETE) {
         updateDialogue("Room complete. Room 2 comes next.");
         return;
@@ -929,23 +934,11 @@ function finishRoom1() {
     currentPhase = GAME_PHASE.ROOM_COMPLETE;
     puzzleOverlay.classList.add("hidden");
 
-    if (recallScore >= 4) {
-        fragments++;
-        fragmentsDisplay.textContent = `${fragments} / 4`;
-        updateDialogue(`Excellent! Fragment recovered. Score: ${recallScore}/5`);
-    } else {
-        updateDialogue(`You barely held on. Score: ${recallScore}/5`);
-    }
+    fragments++;
+    fragmentsDisplay.textContent = `${fragments} / 4`;
+    updateDialogue("Fragment recovered. The memory held together.");
 
-    setUIState({ showNext: false, showDiffuse: false });
-
-    scheduleRoomCallback(() => {
-        updateDialogue("A second door opens... The Compression Library awaits.");
-    }, 1800);
-
-    scheduleRoomCallback(() => {
-        goToRoom(2);
-    }, 3500);
+    setUIState({ showNext: true, showDiffuse: false });
 }
 
 function finishRoom2() {
