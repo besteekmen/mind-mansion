@@ -422,7 +422,7 @@ diffuseBtn.addEventListener("click", () => {
 
         if (room2DiffuseContext === "recall") {
             updateDialogue(
-                `Hint: Recall what each letter in LOCKE stood for. Uses left: ${diffuseUses}`
+                `Hint: Reconstruct the original word order using your chosen strategy. Uses left: ${diffuseUses}`
             );
             return;
         }
@@ -1006,7 +1006,7 @@ function startRoom2RecallTest() {
         </div>
 
         <div style="margin-bottom:20px;">
-            Which item was represented by K in LOCKE?
+            Which item was 4th?
         </div>
     `;
 
