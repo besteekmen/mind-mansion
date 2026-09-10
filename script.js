@@ -314,6 +314,13 @@ nextBtn.addEventListener("click", () => {
     }
 
     if (currentRoom === 2) {
+        if (currentPhase === GAME_PHASE.ROOM_COMPLETE) {
+            setUIState({ showNext: false, showDiffuse: false });
+            transitionToRoom("assets/room3-bg.png", () => goToRoom(3));
+            return;
+        }
+        if (currentPhase !== GAME_PHASE.RETRIEVAL) return;
+
         if (room2Step === 0) {
             room2Step = 1;
             updateDialogue("Raw information overwhelms working memory.");
@@ -359,6 +366,18 @@ nextBtn.addEventListener("click", () => {
         if (room2Step === 10) {
             room2Step = 11;
             startRoom2DistortionStorm();
+            return;
+        }
+
+        if (room2Step === 12) {
+            room2Step = 13;
+            startAetherRecallTest();
+            return;
+        }
+
+        if (room2Step === 14) {
+            room2Step = 15;
+            finishRoom2();
             return;
         }
     }
@@ -998,6 +1017,7 @@ function startRoom2RecallTest() {
 
         btn.onclick = () => {
             if (!acceptPuzzleAnswer(puzzle)) return;
+            room2Step = 12;
             setUIState({ showNext: true, showDiffuse: false });
 
             const correct = opt === "Kite";
@@ -1005,15 +1025,41 @@ function startRoom2RecallTest() {
             updateDialogue(
                 correct
                     ? "Good. The structure helped stabilize memory."
-                    : "Not quite. But notice how the chunk still helps guide recall."
+                    : "Not quite. K stood for Kite. The letters can help guide recall."
             );
 
             applyAnxiety(correct ? -3 : +4);
-
-            scheduleRoomCallback(finishRoom2, 1500);
         };
 
         puzzleCard.appendChild(btn);
+    });
+}
+
+function startAetherRecallTest() {
+    const puzzle = beginPuzzleAnswers();
+    room2DiffuseContext = null;
+    setUIState({ showNext: false, showDiffuse: false });
+
+    puzzleCard.innerHTML = `
+        <div class="aether-heading">Aether Engine retrieval</div>
+        <div>Which component stores the light before it is released?</div>
+    `;
+
+    ["Prism Coil", "Lumen Cell", "Pulse Gate", "Cooling Ring"].forEach(choice => {
+        const button = document.createElement("button");
+        button.className = "puzzle-option";
+        button.textContent = choice;
+        button.onclick = () => {
+            if (!acceptPuzzleAnswer(puzzle)) return;
+            room2Step = 14;
+            const correct = choice === "Lumen Cell";
+            applyAnxiety(correct ? -3 : +4);
+            updateDialogue(correct
+                ? "Yes. The Lumen Cell stores the light before the Pulse Gate releases it."
+                : "The Lumen Cell stores the light. The Pulse Gate controls when it is released.");
+            setUIState({ showNext: true, showDiffuse: false });
+        };
+        puzzleCard.appendChild(button);
     });
 }
 
@@ -1033,23 +1079,16 @@ function finishRoom1() {
 }
 
 function finishRoom2() {
-    if (currentRoom !== 2 || currentPhase !== GAME_PHASE.RETRIEVAL) return;
+    if (currentRoom !== 2 || currentPhase !== GAME_PHASE.RETRIEVAL || room2Step !== 15) return;
     answerPending = true;
     puzzleOverlay.classList.add("hidden");
 
     currentPhase = GAME_PHASE.ROOM_COMPLETE;
 
-    if (selectedChunk === "Lazy Owls Carry Kite Equipment") {
-        fragments++;
-        fragmentsDisplay.textContent = `${fragments} / 4`;
-        updateDialogue("Excellent. Strong chunk created. Fragment recovered.");
-    } else {
-        updateDialogue("You completed the task. But chunk strength could improve.");
-    }
-
-    scheduleRoomCallback(() => {
-        goToRoom(3);
-    }, 2500);
+    fragments++;
+    fragmentsDisplay.textContent = `${fragments} / 4`;
+    updateDialogue("Fragment 2 recovered. You practiced remembering through order and meaningful relationships.");
+    setUIState({ showNext: true, showDiffuse: false });
 }
 
 // -------------------- UTIL --------------------
