@@ -928,6 +928,7 @@ function selectAetherMap(key, puzzle) {
 }
 
 function startRoom2DistortionStorm() {
+    setUIState({ showNext: false, showDiffuse: false });
     puzzleOverlay.classList.remove("hidden");
     gamePaused = true;
 
@@ -986,7 +987,7 @@ function startRoom2RecallTest() {
         </div>
 
         <div style="margin-bottom:20px;">
-            Which item was 4th?
+            Which item was represented by K in LOCKE?
         </div>
     `;
 
